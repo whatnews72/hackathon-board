@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn 스타일 디자인 토큰 (밝고 친근한 색상) */
+:root {
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --primary: 245 80% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 40%;
+  --destructive: 0 80% 55%;
+  --border: 214 32% 88%;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+}
