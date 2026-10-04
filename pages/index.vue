@@ -48,5 +48,8 @@ function enter() {
       <p v-if="error" class="text-sm font-semibold text-destructive">{{ error }}</p>
       <UiButton size="lg" class="w-full" :disabled="!teams.length" @click="enter">입장하기</UiButton>
     </UiCard>
+    <p class="mt-4 text-center text-sm">
+      <NuxtLink to="/admin" class="text-muted-foreground underline">교사 메뉴</NuxtLink>
+    </p>
   </div>
 </template>
