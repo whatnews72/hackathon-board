@@ -63,6 +63,33 @@ function remove(action: string, id: string, label: string) {
   if (confirm(`"${label}" 을(를) 삭제할까요?`)) run(action, { id })
 }
 
+// CSV 내려받기: 팀 순서 -> 작성 시각 순으로 정렬
+const teamName = (id: string) => teams.value.find((t) => t.id === id)?.name ?? '(삭제된 팀)'
+const teamOrder = (id: string) => {
+  const i = teams.value.findIndex((t) => t.id === id)
+  return i === -1 ? Number.MAX_SAFE_INTEGER : i
+}
+const byTeamThenTime = <T extends { team_id: string; created_at: string }>(a: T, b: T) =>
+  teamOrder(a.team_id) - teamOrder(b.team_id) || a.created_at.localeCompare(b.created_at)
+const today = () => formatKst(new Date().toISOString()).slice(0, 10).replace(/-/g, '')
+
+function exportIdeas() {
+  const rows = [...ideas.value].sort(byTeamThenTime).map((i) => [
+    teamName(i.team_id), i.nickname, i.content, i.likes, formatKst(i.created_at),
+  ])
+  downloadCsv(`${safeFileName(siteTitle.value)}_아이디어_${today()}.csv`, ['팀', '닉네임', '내용', '좋아요', '작성시각'], rows)
+  message.value = `아이디어 ${rows.length}건을 CSV로 내려받았어요.`
+}
+
+function exportProjects() {
+  const rows = [...projects.value].sort(byTeamThenTime).map((p) => [
+    teamName(p.team_id), p.nickname, p.title, p.description, p.link, p.image_url, p.votes, formatKst(p.created_at),
+  ])
+  downloadCsv(`${safeFileName(siteTitle.value)}_작품_${today()}.csv`,
+    ['팀', '닉네임', '제목', '설명', '링크', '이미지 주소', '투표수', '작성시각'], rows)
+  message.value = `작품 ${rows.length}건을 CSV로 내려받았어요.`
+}
+
 async function startPresent(id: string) {
   await run('present', { id })
   navigateTo('/present')
@@ -119,7 +146,10 @@ async function startPresent(id: string) {
       </UiCard>
 
       <UiCard class="space-y-2">
-        <h2 class="font-extrabold">작품 ({{ projects.length }})</h2>
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-extrabold">작품 ({{ projects.length }})</h2>
+          <UiButton size="sm" variant="outline" :disabled="!projects.length" @click="exportProjects">📥 CSV 내려받기</UiButton>
+        </div>
         <div v-for="p in projects" :key="p.id" class="flex items-center justify-between gap-2 border-b border-border py-2">
           <span>{{ p.title }} <small class="text-muted-foreground">- {{ p.nickname }}</small></span>
           <span class="flex gap-1">
@@ -130,7 +160,10 @@ async function startPresent(id: string) {
       </UiCard>
 
       <UiCard class="space-y-2">
-        <h2 class="font-extrabold">아이디어 ({{ ideas.length }})</h2>
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-extrabold">아이디어 ({{ ideas.length }})</h2>
+          <UiButton size="sm" variant="outline" :disabled="!ideas.length" @click="exportIdeas">📥 CSV 내려받기</UiButton>
+        </div>
         <div v-for="i in ideas" :key="i.id" class="flex items-center justify-between gap-2 border-b border-border py-2">
           <span class="break-words">{{ i.content }} <small class="text-muted-foreground">- {{ i.nickname }}</small></span>
           <UiButton size="sm" variant="destructive" @click="remove('deleteIdea', i.id, i.content)">삭제</UiButton>
