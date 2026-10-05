@@ -31,6 +31,10 @@ create table if not exists projects (
   created_at timestamptz default now()
 );
 
+-- 발표 자료(PPT/PDF) 첨부용 컬럼 (이미 만들어 둔 테이블에도 추가됩니다)
+alter table projects add column if not exists file_url text default '';
+alter table projects add column if not exists file_name text default '';
+
 -- 발표 화면 동기화용 (항상 1행)
 create table if not exists presentation_state (
   id int primary key default 1 check (id = 1),
@@ -112,6 +116,26 @@ drop policy if exists "이미지 읽기" on storage.objects;
 drop policy if exists "이미지 업로드" on storage.objects;
 create policy "이미지 읽기" on storage.objects for select using (bucket_id = 'project-images');
 create policy "이미지 업로드" on storage.objects for insert with check (bucket_id = 'project-images');
+
+-- 발표 자료 저장소 (PPT, PPTX, PDF 만 허용, 파일당 30MB 까지, 공개 읽기, 익명 업로드)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'project-files', 'project-files', true, 31457280,
+  array[
+    'application/pdf',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  ]
+)
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "자료 읽기" on storage.objects;
+drop policy if exists "자료 업로드" on storage.objects;
+create policy "자료 읽기" on storage.objects for select using (bucket_id = 'project-files');
+create policy "자료 업로드" on storage.objects for insert with check (bucket_id = 'project-files');
 
 -- 6. 평가하기 -------------------------------------------------------------
 -- eval_settings: 평가 기준/교사 반영 비율/진행 상태/결과 공개 여부 (학생도 읽기 가능)

@@ -83,10 +83,10 @@ function exportIdeas() {
 
 function exportProjects() {
   const rows = [...projects.value].sort(byTeamThenTime).map((p) => [
-    teamName(p.team_id), p.nickname, p.title, p.description, p.link, p.image_url, p.votes, formatKst(p.created_at),
+    teamName(p.team_id), p.nickname, p.title, p.description, p.link, p.image_url, p.file_name ?? '', p.file_url ?? '', p.votes, formatKst(p.created_at),
   ])
   downloadCsv(`${safeFileName(siteTitle.value)}_작품_${today()}.csv`,
-    ['팀', '닉네임', '제목', '설명', '링크', '이미지 주소', '투표수', '작성시각'], rows)
+    ['팀', '닉네임', '제목', '설명', '링크', '이미지 주소', '발표 자료 이름', '발표 자료 주소', '투표수', '작성시각'], rows)
   message.value = `작품 ${rows.length}건을 CSV로 내려받았어요.`
 }
 
@@ -95,7 +95,7 @@ function removeAll(kind: 'ideas' | 'projects') {
   const count = kind === 'ideas' ? ideas.value.length : projects.value.length
   if (!count) return
   const label = kind === 'ideas' ? '아이디어' : '작품'
-  const extra = kind === 'projects' ? '\n작품에 달린 평가 점수와 업로드한 이미지도 함께 삭제됩니다.' : ''
+  const extra = kind === 'projects' ? '\n작품에 달린 평가 점수와 업로드한 이미지·발표 자료 파일도 함께 삭제됩니다.' : ''
   if (confirm(`${label} ${count}개를 모두 삭제할까요?${extra}\n되돌릴 수 없어요.`)) {
     run(kind === 'ideas' ? 'deleteAllIdeas' : 'deleteAllProjects', {}, `${label} ${count}개를 모두 삭제했어요.`)
   }

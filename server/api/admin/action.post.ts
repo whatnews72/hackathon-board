@@ -34,23 +34,21 @@ export default defineEventHandler(async (event) => {
     case 'deleteIdea':
       must(await db.from('ideas').delete().eq('id', body.id))
       break
-    case 'deleteProject':
+    case 'deleteProject': {
+      const { data: rows } = must(await db.from('projects').select('*').eq('id', body.id ?? ''))
       must(await db.from('projects').delete().eq('id', body.id))
+      await removeStoredFiles(db, rows ?? [])
       break
+    }
     case 'deleteAllIdeas':
       must(await db.from('ideas').delete().not('id', 'is', null))
       break
     case 'deleteAllProjects': {
-      // 작품을 지우기 전에 업로드한 이미지 파일 경로를 모아 둔다
-      const { data: rows } = must(await db.from('projects').select('image_url'))
+      // 작품을 지우기 전에 업로드한 이미지/발표 자료 파일 경로를 모아 둔다
+      const { data: rows } = must(await db.from('projects').select('*'))
       // 작품을 지우면 평가 점수도 함께 지워지고, 발표 중이던 작품은 발표 대상에서 빠진다
       must(await db.from('projects').delete().not('id', 'is', null))
-      const paths = (rows ?? [])
-        .map((r) => String(r.image_url ?? '').split('/project-images/')[1])
-        .filter(Boolean)
-        .map((p) => decodeURIComponent(p.split('?')[0]))
-      // 이미지 파일 정리는 실패해도 작품 삭제 결과에는 영향을 주지 않는다
-      if (paths.length) await db.storage.from('project-images').remove(paths)
+      await removeStoredFiles(db, rows ?? [])
       break
     }
     case 'addTeam':
@@ -74,9 +72,13 @@ export default defineEventHandler(async (event) => {
       must(await db.from('teams').insert(rows))
       break
     }
-    case 'deleteTeam':
+    case 'deleteTeam': {
+      // 팀을 지우면 팀의 작품도 함께 지워지므로 그 작품의 파일도 정리한다
+      const { data: rows } = must(await db.from('projects').select('*').eq('team_id', body.id ?? ''))
       must(await db.from('teams').delete().eq('id', body.id))
+      await removeStoredFiles(db, rows ?? [])
       break
+    }
     case 'updateTitle':
       // 행이 없어도 만들어지도록 upsert 사용
       must(await db.from('site_settings').upsert({ id: 1, title: cleanName(body.title, 30) }))

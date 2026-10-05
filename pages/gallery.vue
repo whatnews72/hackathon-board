@@ -9,7 +9,9 @@ const { rows: projects } = useRealtimeTable<Project>('projects')
 
 const showForm = ref(false)
 const form = reactive({ title: '', description: '', link: '' })
-const file = ref<File | null>(null)
+const file = ref<File | null>(null) // 대표 이미지
+const docFile = ref<File | null>(null) // 발표 자료 (PPT/PDF)
+const fileKey = ref(0) // 올리기가 끝나면 파일 선택칸을 비우기 위한 값
 const saving = ref(false)
 const errorMsg = ref('')
 const chosenTeam = ref('')
@@ -35,6 +37,10 @@ async function submit() {
   if (!nickname.value) return (errorMsg.value = '작품을 올리려면 먼저 닉네임으로 입장해 주세요.')
   if (!form.title.trim()) return (errorMsg.value = '작품 제목을 입력해 주세요.')
   if (!chosenTeam.value) return (errorMsg.value = '팀을 선택해 주세요.')
+  if (docFile.value) {
+    const problem = validateDoc(docFile.value)
+    if (problem) return (errorMsg.value = problem)
+  }
   saving.value = true
   try {
     let image_url = ''
@@ -44,12 +50,26 @@ async function submit() {
       if (error) throw new Error(`이미지를 올리지 못했어요. (${error.message})`)
       image_url = supabase.storage.from('project-images').getPublicUrl(path).data.publicUrl
     }
+    // 발표 자료(PPT/PDF): 파일 이름은 한글이 있어도 되도록 따로 저장하고, 저장소에는 영문 이름으로 올린다
+    let file_url = ''
+    let file_name = ''
+    if (docFile.value) {
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${docExt(docFile.value.name)}`
+      const { error } = await supabase.storage.from('project-files').upload(path, docFile.value, {
+        contentType: docContentType(docFile.value.name),
+      })
+      if (error) throw new Error(`발표 자료를 올리지 못했어요. (${error.message})`)
+      file_url = supabase.storage.from('project-files').getPublicUrl(path).data.publicUrl
+      file_name = docFile.value.name.slice(0, 100)
+    }
     const { error } = await supabase.from('projects').insert({
-      team_id: chosenTeam.value, nickname: nickname.value, ...form, image_url,
+      team_id: chosenTeam.value, nickname: nickname.value, ...form, image_url, file_url, file_name,
     })
     if (error) throw new Error(`작품을 저장하지 못했어요. (${error.message})`)
     Object.assign(form, { title: '', description: '', link: '' })
     file.value = null
+    docFile.value = null
+    fileKey.value++
     showForm.value = false
   } catch (e: any) {
     // 실패하면 입력한 내용은 그대로 두고 이유를 보여준다
@@ -88,7 +108,19 @@ async function vote(p: Project) {
       <UiInput v-model="form.title" maxlength="60" placeholder="작품 제목" />
       <UiTextarea v-model="form.description" placeholder="어떤 작품인지 설명해 주세요" />
       <UiInput v-model="form.link" placeholder="데모/자료 링크 (선택)" />
-      <input type="file" accept="image/*" @change="file = ($event.target as HTMLInputElement).files?.[0] ?? null" />
+      <div :key="fileKey" class="space-y-3">
+        <label class="block space-y-1">
+          <span class="text-sm font-semibold">🖼️ 대표 이미지 (선택)</span>
+          <input type="file" accept="image/*" class="block w-full text-sm" @change="file = ($event.target as HTMLInputElement).files?.[0] ?? null" />
+        </label>
+        <label class="block space-y-1">
+          <span class="text-sm font-semibold">📎 발표 자료 - PPT 또는 PDF (선택, {{ DOC_MAX_MB }}MB까지)</span>
+          <input
+            type="file" :accept="DOC_ACCEPT" class="block w-full text-sm"
+            @change="docFile = ($event.target as HTMLInputElement).files?.[0] ?? null"
+          />
+        </label>
+      </div>
       <p v-if="errorMsg" class="rounded-md bg-red-50 p-3 text-sm font-semibold text-destructive">{{ errorMsg }}</p>
       <div><UiButton :disabled="saving" @click="submit">{{ saving ? '올리는 중…' : '올리기' }}</UiButton></div>
     </UiCard>
@@ -104,6 +136,10 @@ async function vote(p: Project) {
           >{{ teamOf(p.team_id)?.name }}</span>
           <h3 class="text-lg font-extrabold">{{ p.title }}</h3>
           <p class="line-clamp-3 text-sm text-muted-foreground">{{ p.description }}</p>
+          <a
+            v-if="p.file_url" :href="p.file_url" target="_blank" rel="noopener"
+            class="flex items-center gap-1 text-sm font-semibold text-primary"
+          >{{ docIcon(p.file_url) }} <span class="truncate">{{ p.file_name || '발표 자료' }}</span></a>
           <div class="flex items-center justify-between pt-1">
             <a v-if="p.link" :href="p.link" target="_blank" rel="noopener" class="flex items-center gap-1 text-sm text-primary">
               <ExternalLink class="h-4 w-4" /> 링크

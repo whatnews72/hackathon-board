@@ -16,6 +16,23 @@ export async function adminClient(event: H3Event, password: string | undefined) 
   return serviceClient(event)
 }
 
+// 작품에 딸린 이미지/발표 자료 파일을 저장소에서 지운다 (실패해도 작품 삭제 결과에는 영향 없음)
+export async function removeStoredFiles(
+  db: ReturnType<typeof serviceClient>,
+  rows: { image_url?: string | null; file_url?: string | null }[],
+) {
+  const pathOf = (url: string | null | undefined, bucket: string) => {
+    const part = String(url ?? '').split(`/${bucket}/`)[1]
+    return part ? decodeURIComponent(part.split('?')[0]) : ''
+  }
+  const images = rows.map((r) => pathOf(r.image_url, 'project-images')).filter(Boolean)
+  const files = rows.map((r) => pathOf(r.file_url, 'project-files')).filter(Boolean)
+  try {
+    if (images.length) await db.storage.from('project-images').remove(images)
+    if (files.length) await db.storage.from('project-files').remove(files)
+  } catch { /* 파일 정리 실패는 무시 */ }
+}
+
 // Supabase 가 실패(error)를 돌려주면 성공처럼 넘기지 않고 화면에 오류를 보여준다
 export function must<T extends { error: { message: string } | null }>(res: T): T {
   if (res.error) {

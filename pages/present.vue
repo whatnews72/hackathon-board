@@ -24,6 +24,7 @@ function readableText(hex: string | undefined) {
   return luminance > 0.6 ? '#111827' : '#ffffff'
 }
 const teamColor = computed(() => team.value?.color ?? '#6366f1')
+const fileKind = computed(() => docKind(current.value?.file_url))
 
 // 초시계: 서버가 기록한 시작 시각(started_at) 기준이라 모든 화면에서 같은 시간이 보인다.
 // 기기 시계가 틀려도 되도록 서버 시계와의 차이를 맞춘다.
@@ -136,6 +137,28 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <p class="mx-auto max-w-2xl whitespace-pre-wrap text-lg text-muted-foreground">{{ current.description }}</p>
         <a v-if="current.link" :href="current.link" target="_blank" rel="noopener" class="text-primary underline">{{ current.link }}</a>
         <p class="text-sm text-muted-foreground">만든 사람: {{ current.nickname }}</p>
+      </div>
+
+      <!-- 발표 자료: PDF 는 화면 안에서 바로 보여주고, PPT 는 다운로드/웹 뷰어로 연다 -->
+      <div v-if="current.file_url" class="space-y-3 border-t border-border p-6">
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          <span class="font-bold">{{ docIcon(current.file_url) }} 발표 자료: {{ current.file_name || '발표 자료' }}</span>
+          <a
+            :href="current.file_url" target="_blank" rel="noopener"
+            class="rounded-md border border-border bg-white px-3 py-1.5 text-sm font-semibold hover:bg-muted"
+          >{{ fileKind === 'pdf' ? '새 탭에서 열기' : '다운로드' }}</a>
+          <a
+            v-if="fileKind === 'ppt'" :href="officeViewerUrl(current.file_url)" target="_blank" rel="noopener"
+            class="rounded-md border border-border bg-white px-3 py-1.5 text-sm font-semibold hover:bg-muted"
+          >브라우저에서 보기</a>
+        </div>
+        <iframe
+          v-if="fileKind === 'pdf'" :src="current.file_url" :title="current.file_name || '발표 자료'"
+          class="h-[75vh] w-full rounded-md border border-border"
+        />
+        <p v-else class="text-center text-xs text-muted-foreground">
+          PPT는 다운로드해서 열거나 '브라우저에서 보기'(Microsoft Office 웹 뷰어)를 쓰세요. 용량이 큰 파일은 웹 뷰어에서 안 열릴 수 있어요.
+        </p>
       </div>
     </UiCard>
 

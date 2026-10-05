@@ -148,6 +148,10 @@ onBeforeUnmount(() => clearInterval(timer))
               <span class="rounded px-2 py-0.5 text-xs font-bold" :style="{ background: (teamOf(p.team_id)?.color ?? '#999999') + '33' }">{{ teamOf(p.team_id)?.name }}</span>
               <h3 class="text-lg font-extrabold">{{ p.title }}</h3>
               <p v-if="p.description" class="line-clamp-2 text-sm text-muted-foreground">{{ p.description }}</p>
+              <a
+                v-if="p.file_url" :href="p.file_url" target="_blank" rel="noopener"
+                class="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary"
+              >{{ docIcon(p.file_url) }} {{ p.file_name || '발표 자료' }} 보기</a>
             </div>
 
             <StarRating

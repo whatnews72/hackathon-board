@@ -3,6 +3,7 @@ export interface Idea { id: string; team_id: string; nickname: string; content: 
 export interface Project {
   id: string; team_id: string; nickname: string; title: string
   description: string; link: string; image_url: string; votes: number; created_at: string
+  file_url?: string | null; file_name?: string | null // 발표 자료(PPT/PDF)
 }
 export interface SiteSettings { id: number; title: string }
 export interface EvalSettings {
