@@ -1,4 +1,4 @@
-// 교사 전용 작업: 삭제, 팀 관리, 제목 변경, 발표 상태 변경
+// 교사 전용 작업: 삭제, 팀 관리, 제목 변경, 발표 상태 변경, 평가 관리
 export default defineEventHandler(async (event) => {
   const body = await readBody<{
     password?: string
@@ -6,11 +6,14 @@ export default defineEventHandler(async (event) => {
       | 'check' | 'deleteIdea' | 'deleteProject'
       | 'addTeam' | 'updateTeam' | 'createTeams' | 'deleteTeam'
       | 'updateTitle' | 'present'
+      | 'setEvalStatus' | 'setRevealed' | 'updateCriteria' | 'setTeacherWeight' | 'resetEvaluations'
     id?: string
     name?: string
     color?: string
     title?: string
     count?: number
+    value?: string | number | boolean
+    criteria?: unknown
   }>(event)
   const db = await adminClient(event, body.password)
 
@@ -22,13 +25,7 @@ export default defineEventHandler(async (event) => {
     }
     return v
   }
-  // Supabase 가 실패(error)를 돌려주면 성공처럼 넘기지 않고 화면에 오류를 보여준다
-  const must = <T extends { error: { message: string } | null }>(res: T) => {
-    if (res.error) {
-      throw createError({ statusCode: 500, statusMessage: `데이터베이스 오류: ${res.error.message}` })
-    }
-    return res
-  }
+  const bad = (message: string) => createError({ statusCode: 400, statusMessage: message })
   const palette = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
 
   switch (body.action) {
@@ -73,6 +70,42 @@ export default defineEventHandler(async (event) => {
       must(await db
         .from('presentation_state')
         .upsert({ id: 1, project_id: body.id ?? null, started_at: body.id ? new Date().toISOString() : null }))
+      break
+
+    // ---- 평가 관리 ----
+    case 'setEvalStatus':
+      if (body.value !== 'open' && body.value !== 'closed') throw bad('상태 값이 올바르지 않아요.')
+      must(await db.from('eval_settings').upsert({ id: 1, status: body.value }))
+      break
+    case 'setRevealed':
+      must(await db.from('eval_settings').upsert({ id: 1, revealed: body.value === true }))
+      break
+    case 'setTeacherWeight': {
+      const weight = Number(body.value)
+      if (!Number.isInteger(weight) || weight < 0 || weight > 100) throw bad('교사 비율은 0~100 사이 정수로 입력해 주세요.')
+      must(await db.from('eval_settings').upsert({ id: 1, teacher_weight: weight }))
+      break
+    }
+    case 'updateCriteria': {
+      // 항목은 2~6개, 이름은 1~10자
+      const list = Array.isArray(body.criteria) ? body.criteria.map((c) => String(c ?? '').trim()) : []
+      if (list.length < 2 || list.length > 6) throw bad('평가 항목은 2~6개로 만들어 주세요.')
+      if (list.some((c) => !c || c.length > 10)) throw bad('항목 이름은 1~10자로 입력해 주세요.')
+      if (new Set(list).size !== list.length) throw bad('항목 이름이 서로 겹치지 않게 해 주세요.')
+      // 이미 제출된 점수가 있으면 항목 수를 바꿀 수 없다 (이름만 변경 가능)
+      const current = must(await db.from('eval_settings').select('criteria').eq('id', 1).maybeSingle()).data
+      const currentCount = Array.isArray(current?.criteria) ? current.criteria.length : 4
+      if (list.length !== currentCount) {
+        const { count: submitted } = must(await db.from('evaluations').select('*', { count: 'exact', head: true }))
+        if ((submitted ?? 0) > 0) throw bad('이미 제출된 평가가 있어 항목 수는 바꿀 수 없어요. 평가를 초기화한 뒤 바꿔 주세요.')
+      }
+      must(await db.from('eval_settings').upsert({ id: 1, criteria: list }))
+      break
+    }
+    case 'resetEvaluations':
+      // 모든 점수를 지우고 결과는 다시 비공개로 돌린다
+      must(await db.from('evaluations').delete().not('id', 'is', null))
+      must(await db.from('eval_settings').upsert({ id: 1, revealed: false }))
       break
   }
   return { ok: true }

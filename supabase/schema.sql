@@ -113,4 +113,48 @@ drop policy if exists "이미지 업로드" on storage.objects;
 create policy "이미지 읽기" on storage.objects for select using (bucket_id = 'project-images');
 create policy "이미지 업로드" on storage.objects for insert with check (bucket_id = 'project-images');
 
+-- 6. 평가하기 -------------------------------------------------------------
+-- eval_settings: 평가 기준/교사 반영 비율/진행 상태/결과 공개 여부 (학생도 읽기 가능)
+-- evaluations  : 학생·교사의 점수. 학생에게는 읽기·쓰기 권한을 주지 않고 서버 API 로만 접근
+--                (결과 공개 전에 다른 사람의 점수를 볼 수 없도록 함)
+
+create table if not exists eval_settings (
+  id int primary key default 1 check (id = 1),
+  criteria jsonb not null default '["창의성","완성도","발표력","협력"]'::jsonb,
+  teacher_weight int not null default 50 check (teacher_weight between 0 and 100),
+  status text not null default 'closed' check (status in ('closed', 'open')),
+  revealed boolean not null default false
+);
+insert into eval_settings (id) values (1) on conflict do nothing;
+
+create table if not exists evaluations (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references projects(id) on delete cascade,
+  evaluator_type text not null check (evaluator_type in ('student', 'teacher')),
+  evaluator_key text not null,
+  evaluator_name text not null default '',
+  team_id uuid,
+  scores jsonb not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (project_id, evaluator_key)
+);
+
+alter table eval_settings enable row level security;
+alter table evaluations enable row level security;
+
+drop policy if exists "읽기" on eval_settings;
+create policy "읽기" on eval_settings for select using (true);
+
+revoke all on evaluations from anon, authenticated;
+grant select on eval_settings to anon, authenticated;
+grant all on eval_settings, evaluations to service_role;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.eval_settings;
+exception when duplicate_object then
+  null;
+end $$;
+
 -- 팀은 기본값 없이 시작합니다. 교사 화면(/admin)에서 제목과 팀을 정하세요.

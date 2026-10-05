@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Lightbulb, Image, Presentation, Settings, QrCode } from 'lucide-vue-next'
+import { Lightbulb, Image, Presentation, Settings, QrCode, Star } from 'lucide-vue-next'
 
 const { nickname, logout } = useNickname()
 const route = useRoute()
@@ -9,6 +9,7 @@ const links = [
   { to: '/board', label: '아이디어 보드', icon: Lightbulb },
   { to: '/gallery', label: '작품 갤러리', icon: Image },
   { to: '/present', label: '발표', icon: Presentation },
+  { to: '/evaluate', label: '평가하기', icon: Star },
   { to: '/share', label: 'QR 공유', icon: QrCode },
   { to: '/admin', label: '교사', icon: Settings },
 ]

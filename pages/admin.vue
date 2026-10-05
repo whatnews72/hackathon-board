@@ -145,6 +145,8 @@ async function startPresent(id: string) {
         </div>
       </UiCard>
 
+      <EvalAdmin />
+
       <UiCard class="space-y-2">
         <div class="flex items-center justify-between gap-2">
           <h2 class="font-extrabold">작품 ({{ projects.length }})</h2>
