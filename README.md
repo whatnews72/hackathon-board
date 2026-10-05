@@ -15,7 +15,8 @@
 3. Project Settings > API 에서 URL, anon key, service_role key 를 확인한다.
 
 > 팀은 기본값 없이 시작합니다. 제목과 팀은 배포 후 교사 메뉴(`/admin`)에서 정합니다.
-> 이미 예전 `schema.sql`을 실행했다면, 새 파일의 "행사 제목 설정" 블록(`site_settings` 테이블 생성 ~ `add table site_settings`)만 SQL Editor에서 추가로 실행하세요.
+> `schema.sql`은 여러 번 실행해도 안전합니다. 예전 버전을 실행했거나 중간에 오류가 났다면 새 파일 전체를 다시 실행하세요.
+> 실행 후 왼쪽 **Table Editor**에 `teams`, `ideas`, `projects`, `presentation_state`, `site_settings` 5개 테이블이 보여야 합니다.
 
 ## 2. 로컬 실행
 ```bash
