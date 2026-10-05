@@ -1,3 +1,10 @@
+// 투표/좋아요 기록 키 (입장·퇴장 시 초기화)
+const EVAL_KEYS = ['votedProjects', 'likedIdeas']
+
+function resetEvaluations() {
+  for (const key of EVAL_KEYS) localStorage.removeItem(key)
+}
+
 // 닉네임/팀을 localStorage 에 저장 (가입 없는 입장 방식)
 export function useNickname() {
   const nickname = useState<string>('nickname', () => '')
@@ -18,6 +25,7 @@ export function useNickname() {
     teamId.value = team
     localStorage.setItem('nickname', nickname.value)
     localStorage.setItem('teamId', team)
+    resetEvaluations() // 새로 입장하면 평가 화면도 처음 상태로
   }
 
   function logout() {
@@ -25,6 +33,7 @@ export function useNickname() {
     teamId.value = ''
     localStorage.removeItem('nickname')
     localStorage.removeItem('teamId')
+    resetEvaluations()
   }
 
   return { nickname, teamId, ready, login, logout }
