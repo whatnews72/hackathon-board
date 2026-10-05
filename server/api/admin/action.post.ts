@@ -22,22 +22,29 @@ export default defineEventHandler(async (event) => {
     }
     return v
   }
+  // Supabase 가 실패(error)를 돌려주면 성공처럼 넘기지 않고 화면에 오류를 보여준다
+  const must = <T extends { error: { message: string } | null }>(res: T) => {
+    if (res.error) {
+      throw createError({ statusCode: 500, statusMessage: `데이터베이스 오류: ${res.error.message}` })
+    }
+    return res
+  }
   const palette = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
 
   switch (body.action) {
     case 'check':
       return { ok: true }
     case 'deleteIdea':
-      await db.from('ideas').delete().eq('id', body.id)
+      must(await db.from('ideas').delete().eq('id', body.id))
       break
     case 'deleteProject':
-      await db.from('projects').delete().eq('id', body.id)
+      must(await db.from('projects').delete().eq('id', body.id))
       break
     case 'addTeam':
-      await db.from('teams').insert({ name: cleanName(body.name, 20), color: body.color ?? '#6366f1' })
+      must(await db.from('teams').insert({ name: cleanName(body.name, 20), color: body.color ?? '#6366f1' }))
       break
     case 'updateTeam':
-      await db.from('teams').update({ name: cleanName(body.name, 20), color: body.color }).eq('id', body.id)
+      must(await db.from('teams').update({ name: cleanName(body.name, 20), color: body.color }).eq('id', body.id))
       break
     case 'createTeams': {
       // 현재 팀 수 다음 번호부터 "N팀" 이름으로 일괄 생성
@@ -45,27 +52,27 @@ export default defineEventHandler(async (event) => {
       if (!(count >= 1 && count <= 20)) {
         throw createError({ statusCode: 400, statusMessage: '팀 수는 1~20 사이로 입력해 주세요.' })
       }
-      const { count: existing } = await db.from('teams').select('*', { count: 'exact', head: true })
+      const { count: existing } = must(await db.from('teams').select('*', { count: 'exact', head: true }))
       const start = existing ?? 0
       const rows = Array.from({ length: count }, (_, i) => ({
         name: `${start + i + 1}팀`,
         color: palette[(start + i) % palette.length],
       }))
-      await db.from('teams').insert(rows)
+      must(await db.from('teams').insert(rows))
       break
     }
     case 'deleteTeam':
-      await db.from('teams').delete().eq('id', body.id)
+      must(await db.from('teams').delete().eq('id', body.id))
       break
     case 'updateTitle':
-      await db.from('site_settings').update({ title: cleanName(body.title, 30) }).eq('id', 1)
+      // 행이 없어도 만들어지도록 upsert 사용
+      must(await db.from('site_settings').upsert({ id: 1, title: cleanName(body.title, 30) }))
       break
     case 'present':
       // id 가 없으면 발표 종료
-      await db
+      must(await db
         .from('presentation_state')
-        .update({ project_id: body.id ?? null, started_at: body.id ? new Date().toISOString() : null })
-        .eq('id', 1)
+        .upsert({ id: 1, project_id: body.id ?? null, started_at: body.id ? new Date().toISOString() : null }))
       break
   }
   return { ok: true }
