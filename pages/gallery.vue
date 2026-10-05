@@ -11,7 +11,16 @@ const showForm = ref(false)
 const form = reactive({ title: '', description: '', link: '' })
 const file = ref<File | null>(null)
 const saving = ref(false)
+const errorMsg = ref('')
+const chosenTeam = ref('')
 const voted = ref<string[]>([])
+
+// 내 팀이 아직 존재하면 기본 선택, 팀이 바뀌었거나 삭제됐으면 직접 고르게 한다
+watch([teams, teamId], () => {
+  if (!teams.value.some((t) => t.id === chosenTeam.value)) {
+    chosenTeam.value = teams.value.some((t) => t.id === teamId.value) ? teamId.value : ''
+  }
+}, { immediate: true })
 
 onMounted(() => {
   try { voted.value = JSON.parse(localStorage.getItem('votedProjects') ?? '[]') } catch { /* 무시 */ }
@@ -21,21 +30,32 @@ const teamOf = (id: string) => teams.value.find((t) => t.id === id)
 const sorted = computed(() => [...projects.value].sort((a, b) => b.votes - a.votes))
 
 async function submit() {
-  if (!form.title.trim() || saving.value) return
+  if (saving.value) return
+  errorMsg.value = ''
+  if (!form.title.trim()) return (errorMsg.value = '작품 제목을 입력해 주세요.')
+  if (!chosenTeam.value) return (errorMsg.value = '팀을 선택해 주세요.')
   saving.value = true
-  let image_url = ''
-  if (file.value) {
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${file.value.name.split('.').pop()}`
-    const { error } = await supabase.storage.from('project-images').upload(path, file.value)
-    if (!error) image_url = supabase.storage.from('project-images').getPublicUrl(path).data.publicUrl
+  try {
+    let image_url = ''
+    if (file.value) {
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${file.value.name.split('.').pop()}`
+      const { error } = await supabase.storage.from('project-images').upload(path, file.value)
+      if (error) throw new Error(`이미지를 올리지 못했어요. (${error.message})`)
+      image_url = supabase.storage.from('project-images').getPublicUrl(path).data.publicUrl
+    }
+    const { error } = await supabase.from('projects').insert({
+      team_id: chosenTeam.value, nickname: nickname.value, ...form, image_url,
+    })
+    if (error) throw new Error(`작품을 저장하지 못했어요. (${error.message})`)
+    Object.assign(form, { title: '', description: '', link: '' })
+    file.value = null
+    showForm.value = false
+  } catch (e: any) {
+    // 실패하면 입력한 내용은 그대로 두고 이유를 보여준다
+    errorMsg.value = e?.message ?? '알 수 없는 오류가 났어요. 다시 시도해 주세요.'
+  } finally {
+    saving.value = false
   }
-  await supabase.from('projects').insert({
-    team_id: teamId.value, nickname: nickname.value, ...form, image_url,
-  })
-  Object.assign(form, { title: '', description: '', link: '' })
-  file.value = null
-  showForm.value = false
-  saving.value = false
 }
 
 async function vote(p: Project) {
@@ -54,10 +74,15 @@ async function vote(p: Project) {
     </div>
 
     <UiCard v-if="showForm" class="mb-6 space-y-3">
+      <select v-model="chosenTeam" class="h-11 w-full rounded-md border border-border bg-white px-4">
+        <option value="" disabled>우리 팀을 선택하세요</option>
+        <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
+      </select>
       <UiInput v-model="form.title" maxlength="60" placeholder="작품 제목" />
       <UiTextarea v-model="form.description" placeholder="어떤 작품인지 설명해 주세요" />
       <UiInput v-model="form.link" placeholder="데모/자료 링크 (선택)" />
       <input type="file" accept="image/*" @change="file = ($event.target as HTMLInputElement).files?.[0] ?? null" />
+      <p v-if="errorMsg" class="rounded-md bg-red-50 p-3 text-sm font-semibold text-destructive">{{ errorMsg }}</p>
       <div><UiButton :disabled="saving" @click="submit">{{ saving ? '올리는 중…' : '올리기' }}</UiButton></div>
     </UiCard>
 

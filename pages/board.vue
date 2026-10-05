@@ -8,6 +8,7 @@ const { rows: teams } = useRealtimeTable<Team>('teams')
 const { rows: ideas } = useRealtimeTable<Idea>('ideas')
 const drafts = reactive<Record<string, string>>({})
 const liked = ref<string[]>([])
+const errorMsg = ref('')
 
 onMounted(() => {
   try { liked.value = JSON.parse(localStorage.getItem('likedIdeas') ?? '[]') } catch { /* 무시 */ }
@@ -19,8 +20,14 @@ const byTeam = (id: string) =>
 async function add(team: Team) {
   const content = (drafts[team.id] ?? '').trim()
   if (!content) return
+  errorMsg.value = ''
+  const { error } = await supabase.from('ideas').insert({ team_id: team.id, nickname: nickname.value, content })
+  if (error) {
+    // 실패하면 쓴 글은 그대로 두고 이유를 알려 준다
+    errorMsg.value = `아이디어를 저장하지 못했어요. (${error.message})`
+    return
+  }
   drafts[team.id] = ''
-  await supabase.from('ideas').insert({ team_id: team.id, nickname: nickname.value, content })
 }
 
 async function like(idea: Idea) {
@@ -34,6 +41,7 @@ async function like(idea: Idea) {
 <template>
   <div>
     <h1 class="mb-4 text-2xl font-extrabold">💡 팀별 아이디어 보드</h1>
+    <p v-if="errorMsg" class="mb-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-destructive">{{ errorMsg }}</p>
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <section
         v-for="t in teams" :key="t.id"
