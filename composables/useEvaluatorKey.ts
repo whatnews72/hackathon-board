@@ -1,21 +1,6 @@
-// 학생 평가자를 구분하는 랜덤 키 (닉네임이 같아도 서로 다른 사람으로 처리, 한 사람이 한 작품에 한 번만 점수 제출)
+// 학생 평가자를 구분하는 키: 팀 + 닉네임으로 만든다.
+// 기기가 달라도(폰/PC) 같은 팀·닉네임으로 다시 입장하면 같은 키가 되어, 이전에 남긴 점수를 불러와 수정할 수 있다.
 export function useEvaluatorKey() {
-  const key = useState<string>('evaluatorKey', () => '')
-
-  onMounted(() => {
-    if (key.value) return
-    try {
-      let saved = localStorage.getItem('evaluatorKey')
-      if (!saved) {
-        saved = crypto.randomUUID()
-        localStorage.setItem('evaluatorKey', saved)
-      }
-      key.value = saved
-    } catch {
-      // 저장소를 쓸 수 없으면 이 화면을 연 동안만 쓰는 임시 키
-      key.value = crypto.randomUUID()
-    }
-  })
-
-  return key
+  const { nickname, teamId } = useNickname()
+  return computed(() => (nickname.value && teamId.value ? `s:${teamId.value}:${nickname.value}` : ''))
 }

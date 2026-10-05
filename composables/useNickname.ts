@@ -1,20 +1,9 @@
 // 투표/좋아요 기록 키 (입장·퇴장 시 초기화)
 const EVAL_KEYS = ['votedProjects', 'likedIdeas']
 
-// 평가하기 탭의 평가자 키 (useEvaluatorKey 와 같은 저장소 키)
-const EVALUATOR_KEY = 'evaluatorKey'
-
-// 투표/좋아요 기록과 평가하기 점수를 처음 상태로 되돌린다
+// 투표/좋아요 기록만 초기화 (평가하기 점수는 서버에 남겨 다시 입장해도 수정할 수 있다)
 function resetEvaluations() {
   for (const key of EVAL_KEYS) localStorage.removeItem(key)
-
-  const evaluatorKey = useState<string>('evaluatorKey', () => '')
-  const oldKey = evaluatorKey.value || localStorage.getItem(EVALUATOR_KEY) || ''
-  // 이전 점수를 서버에서 지운다 (실패해도 입장은 계속)
-  if (oldKey) $fetch('/api/reset-evaluations', { method: 'POST', body: { key: oldKey } }).catch(() => {})
-  // 새 평가자로 시작하도록 키를 버린다 (평가하기 화면이 열릴 때 새 키가 만들어진다)
-  localStorage.removeItem(EVALUATOR_KEY)
-  evaluatorKey.value = ''
 }
 
 // 닉네임/팀을 localStorage 에 저장 (가입 없는 입장 방식)
