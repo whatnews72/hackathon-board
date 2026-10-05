@@ -7,6 +7,8 @@ const { rows: teams } = useRealtimeTable<Team>('teams')
 const { rows: projects } = useRealtimeTable<Project>('projects')
 const { isAdmin, api } = useAdmin()
 const evaluatorKey = useEvaluatorKey()
+// 닉네임으로 입장한 사람은 교사 비밀번호가 브라우저에 남아 있어도 학생으로 평가한다
+const asTeacher = computed(() => isAdmin.value && !nickname.value)
 
 const criteria = computed(() => settings.value.criteria)
 const teacherName = ref('선생님')
@@ -21,12 +23,12 @@ const resultsError = ref('')
 
 const myTeamValid = computed(() => teams.value.some((t) => t.id === teamId.value))
 const canEvaluate = computed(() =>
-  isAdmin.value ? !!teacherName.value.trim() : !!nickname.value && myTeamValid.value,
+  asTeacher.value ? !!teacherName.value.trim() : !!nickname.value && myTeamValid.value,
 )
 // 학생은 우리 팀 작품을 평가할 수 없다 / 교사는 모든 작품 평가
-const visible = computed(() => projects.value.filter((p) => isAdmin.value || p.team_id !== teamId.value))
+const visible = computed(() => projects.value.filter((p) => asTeacher.value || p.team_id !== teamId.value))
 const doneCount = computed(() => visible.value.filter((p) => mine[p.id]).length)
-const showResults = computed(() => settings.value.revealed || (isAdmin.value && preview.value))
+const showResults = computed(() => settings.value.revealed || (asTeacher.value && preview.value))
 const teamOf = (id: string) => teams.value.find((t) => t.id === id)
 
 // 화면에 보여 줄 별점: 작성 중인 값 -> 제출한 값 -> 0점 순서 (항목 수가 바뀌면 맞지 않는 값은 버림)
@@ -44,12 +46,12 @@ function setScore(id: string, index: number, value: number) {
 
 // 평가 요청 본문 (교사/학생 구분)
 const who = () =>
-  isAdmin.value
+  asTeacher.value
     ? { kind: 'teacher', name: teacherName.value.trim() }
     : { kind: 'student', key: evaluatorKey.value, name: nickname.value, teamId: teamId.value }
 
 async function loadMine() {
-  if (!isAdmin.value && !evaluatorKey.value) return
+  if (!asTeacher.value && !evaluatorKey.value) return
   try {
     const res = await api<{ items: { projectId: string; scores: number[] }[] }>('/api/my-evaluations', who())
     for (const k of Object.keys(mine)) delete mine[k]
@@ -66,7 +68,7 @@ async function submit(p: Project) {
     await api('/api/evaluate', { ...who(), projectId: p.id, scores })
     mine[p.id] = [...scores]
     delete drafts[p.id]
-    if (isAdmin.value) { try { localStorage.setItem('teacherName', teacherName.value.trim()) } catch { /* 무시 */ } }
+    if (asTeacher.value) { try { localStorage.setItem('teacherName', teacherName.value.trim()) } catch { /* 무시 */ } }
   } catch (e: any) {
     errors[p.id] = e?.data?.statusMessage ?? '제출하지 못했어요. 다시 시도해 주세요.'
   } finally {
@@ -87,8 +89,8 @@ async function loadResults() {
 onMounted(() => {
   try { teacherName.value = localStorage.getItem('teacherName') || '선생님' } catch { /* 무시 */ }
 })
-watch([evaluatorKey, isAdmin], loadMine, { immediate: true })
-watch([() => settings.value.revealed, preview, isAdmin], loadResults, { immediate: true })
+watch([evaluatorKey, asTeacher], loadMine, { immediate: true })
+watch([() => settings.value.revealed, preview, asTeacher], loadResults, { immediate: true })
 
 // 결과를 보는 동안에는 점수가 바뀌어도 따라가도록 주기적으로 다시 불러온다
 let timer: ReturnType<typeof setInterval> | undefined
@@ -106,7 +108,7 @@ onBeforeUnmount(() => clearInterval(timer))
     <p v-else class="mb-4 rounded-md bg-secondary p-3 text-center font-bold">지금은 평가 시간이 아니에요. 선생님이 시작하면 이곳에 작품이 나타나요.</p>
 
     <!-- 교사 도구 -->
-    <UiCard v-if="isAdmin" class="mb-4 space-y-3">
+    <UiCard v-if="asTeacher" class="mb-4 space-y-3">
       <div class="flex flex-wrap items-center gap-2">
         <span class="font-semibold">🧑‍🏫 교사 평가</span>
         <UiInput v-model="teacherName" maxlength="20" placeholder="교사 이름" class="max-w-[10rem]" @change="loadMine" />
@@ -118,10 +120,10 @@ onBeforeUnmount(() => clearInterval(timer))
     </UiCard>
 
     <!-- 입장 안내 -->
-    <p v-if="ready && !isAdmin && !nickname" class="mb-4 rounded-md bg-secondary p-3 text-sm font-semibold">
+    <p v-if="ready && !asTeacher && !nickname" class="mb-4 rounded-md bg-secondary p-3 text-sm font-semibold">
       평가하려면 먼저 <NuxtLink to="/" class="text-primary underline">닉네임으로 입장하기</NuxtLink>
     </p>
-    <p v-else-if="ready && !isAdmin && nickname && teams.length && !myTeamValid" class="mb-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-destructive">
+    <p v-else-if="ready && !asTeacher && nickname && teams.length && !myTeamValid" class="mb-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-destructive">
       팀 정보가 바뀌었어요. <NuxtLink to="/" class="underline">처음 화면에서 다시 입장</NuxtLink>해 주세요.
     </p>
 
@@ -137,7 +139,7 @@ onBeforeUnmount(() => clearInterval(timer))
     <section v-if="settings.status === 'open' && canEvaluate">
       <p class="mb-3 text-center text-sm font-semibold text-muted-foreground">
         {{ doneCount }} / {{ visible.length }}개 평가 완료
-        <span v-if="!isAdmin"> (우리 팀 작품은 평가할 수 없어요)</span>
+        <span v-if="!asTeacher"> (우리 팀 작품은 평가할 수 없어요)</span>
       </p>
 
       <div class="space-y-4">
