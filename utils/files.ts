@@ -26,7 +26,18 @@ export function docKind(nameOrUrl: string | null | undefined): 'pdf' | 'ppt' | '
   return ext === 'pdf' ? 'pdf' : ext === 'ppt' || ext === 'pptx' ? 'ppt' : ''
 }
 
-export const docIcon = (nameOrUrl: string | null | undefined) => (docKind(nameOrUrl) === 'pdf' ? '📄' : '📊')
+// 작품에 붙은 발표 자료. file_url 이 우선이고, 예전에 이미지 칸에 잘못 올라간 PDF/PPT 도 자료로 취급한다
+export function materialOf(p: { file_url?: string | null; file_name?: string | null; image_url?: string | null }) {
+  if (p.file_url) return { url: p.file_url, name: p.file_name || '발표 자료', kind: docKind(p.file_url) }
+  if (p.image_url && docKind(p.image_url)) return { url: p.image_url, name: '발표 자료', kind: docKind(p.image_url) }
+  return null
+}
+
+// 대표 이미지로 보여 줄 주소 (PDF/PPT 는 그림이 아니므로 제외)
+export const thumbOf = (p: { image_url?: string | null }) =>
+  p.image_url && !docKind(p.image_url) ? p.image_url : ''
+
+export const docIcon =(nameOrUrl: string | null | undefined) => (docKind(nameOrUrl) === 'pdf' ? '📄' : '📊')
 
 // 브라우저가 직접 열 수 없는 PPT 를 Office 웹 뷰어로 보는 주소 (파일은 공개 주소여야 한다)
 export const officeViewerUrl = (url: string) =>

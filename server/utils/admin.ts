@@ -21,15 +21,19 @@ export async function removeStoredFiles(
   db: ReturnType<typeof serviceClient>,
   rows: { image_url?: string | null; file_url?: string | null }[],
 ) {
-  const pathOf = (url: string | null | undefined, bucket: string) => {
-    const part = String(url ?? '').split(`/${bucket}/`)[1]
-    return part ? decodeURIComponent(part.split('?')[0]) : ''
+  // 공개 주소(.../object/public/<저장소>/<경로>)에서 저장소와 경로를 꺼낸다.
+  // 어느 칸에 올라갔든(예: PDF 가 이미지 칸에 올라간 경우) 주소를 보고 맞는 저장소에서 지운다.
+  const allowed = ['project-images', 'project-files']
+  const byBucket: Record<string, string[]> = {}
+  for (const url of rows.flatMap((r) => [r.image_url, r.file_url])) {
+    const m = /\/object\/public\/([^/]+)\/(.+)$/.exec(String(url ?? ''))
+    if (!m || !allowed.includes(m[1])) continue
+    ;(byBucket[m[1]] ??= []).push(decodeURIComponent(m[2].split('?')[0]))
   }
-  const images = rows.map((r) => pathOf(r.image_url, 'project-images')).filter(Boolean)
-  const files = rows.map((r) => pathOf(r.file_url, 'project-files')).filter(Boolean)
   try {
-    if (images.length) await db.storage.from('project-images').remove(images)
-    if (files.length) await db.storage.from('project-files').remove(files)
+    for (const [bucket, paths] of Object.entries(byBucket)) {
+      await db.storage.from(bucket).remove(paths)
+    }
   } catch { /* 파일 정리 실패는 무시 */ }
 }
 

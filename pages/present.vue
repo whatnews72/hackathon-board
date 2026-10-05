@@ -24,7 +24,8 @@ function readableText(hex: string | undefined) {
   return luminance > 0.6 ? '#111827' : '#ffffff'
 }
 const teamColor = computed(() => team.value?.color ?? '#6366f1')
-const fileKind = computed(() => docKind(current.value?.file_url))
+// 발표 자료 (이미지 칸에 잘못 올라간 PDF/PPT 도 자료로 취급)
+const material = computed(() => (current.value ? materialOf(current.value) : null))
 
 // 초시계: 서버가 기록한 시작 시각(started_at) 기준이라 모든 화면에서 같은 시간이 보인다.
 // 기기 시계가 틀려도 되도록 서버 시계와의 차이를 맞춘다.
@@ -131,7 +132,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </div>
       </div>
 
-      <img v-if="current.image_url" :src="current.image_url" :alt="current.title" class="max-h-[50vh] w-full bg-muted object-contain" />
+      <img v-if="thumbOf(current)" :src="thumbOf(current)" :alt="current.title" class="max-h-[50vh] w-full bg-muted object-contain" />
       <div class="space-y-3 p-8 text-center">
         <h2 class="text-4xl font-extrabold">{{ current.title }}</h2>
         <p class="mx-auto max-w-2xl whitespace-pre-wrap text-lg text-muted-foreground">{{ current.description }}</p>
@@ -140,20 +141,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       </div>
 
       <!-- 발표 자료: PDF 는 화면 안에서 바로 보여주고, PPT 는 다운로드/웹 뷰어로 연다 -->
-      <div v-if="current.file_url" class="space-y-3 border-t border-border p-6">
+      <div v-if="material" class="space-y-3 border-t border-border p-6">
         <div class="flex flex-wrap items-center justify-center gap-2">
-          <span class="font-bold">{{ docIcon(current.file_url) }} 발표 자료: {{ current.file_name || '발표 자료' }}</span>
+          <span class="font-bold">{{ docIcon(material.url) }} 발표 자료: {{ material.name }}</span>
           <a
-            :href="current.file_url" target="_blank" rel="noopener"
+            :href="material.url" target="_blank" rel="noopener"
             class="rounded-md border border-border bg-white px-3 py-1.5 text-sm font-semibold hover:bg-muted"
-          >{{ fileKind === 'pdf' ? '새 탭에서 열기' : '다운로드' }}</a>
+          >{{ material.kind === 'pdf' ? '새 탭에서 열기' : '다운로드' }}</a>
           <a
-            v-if="fileKind === 'ppt'" :href="officeViewerUrl(current.file_url)" target="_blank" rel="noopener"
+            v-if="material.kind === 'ppt'" :href="officeViewerUrl(material.url)" target="_blank" rel="noopener"
             class="rounded-md border border-border bg-white px-3 py-1.5 text-sm font-semibold hover:bg-muted"
           >브라우저에서 보기</a>
         </div>
         <iframe
-          v-if="fileKind === 'pdf'" :src="current.file_url" :title="current.file_name || '발표 자료'"
+          v-if="material.kind === 'pdf'" :src="material.url" :title="material.name"
           class="h-[75vh] w-full rounded-md border border-border"
         />
         <p v-else class="text-center text-xs text-muted-foreground">

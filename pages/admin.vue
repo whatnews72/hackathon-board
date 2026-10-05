@@ -83,7 +83,7 @@ function exportIdeas() {
 
 function exportProjects() {
   const rows = [...projects.value].sort(byTeamThenTime).map((p) => [
-    teamName(p.team_id), p.nickname, p.title, p.description, p.link, p.image_url, p.file_name ?? '', p.file_url ?? '', p.votes, formatKst(p.created_at),
+    teamName(p.team_id), p.nickname, p.title, p.description, p.link, thumbOf(p), materialOf(p)?.name ?? '', materialOf(p)?.url ?? '', p.votes, formatKst(p.created_at),
   ])
   downloadCsv(`${safeFileName(siteTitle.value)}_작품_${today()}.csv`,
     ['팀', '닉네임', '제목', '설명', '링크', '이미지 주소', '발표 자료 이름', '발표 자료 주소', '투표수', '작성시각'], rows)

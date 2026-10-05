@@ -37,7 +37,8 @@ export default defineEventHandler(async (event) => {
       ...r,
       title: (p?.title as string) ?? '',
       nickname: (p?.nickname as string) ?? '',
-      imageUrl: (p?.image_url as string) ?? '',
+      // 이미지 칸에 잘못 올라간 PDF/PPT 는 그림이 아니므로 제외
+      imageUrl: /\.(pdf|pptx?)(\?|$)/i.test(String(p?.image_url ?? '')) ? '' : ((p?.image_url as string) ?? ''),
       teamId: (p?.team_id as string) ?? '',
       teamName: (t?.name as string) ?? '(삭제된 팀)',
       teamColor: (t?.color as string) ?? '#999999',

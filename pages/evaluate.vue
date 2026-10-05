@@ -142,16 +142,16 @@ onBeforeUnmount(() => clearInterval(timer))
 
       <div class="space-y-4">
         <UiCard v-for="p in visible" :key="p.id" class="space-y-3 overflow-hidden p-0">
-          <img v-if="p.image_url" :src="p.image_url" :alt="p.title" class="h-40 w-full object-cover" />
+          <img v-if="thumbOf(p)" :src="thumbOf(p)" :alt="p.title" class="h-40 w-full object-cover" />
           <div class="space-y-3 p-4">
             <div>
               <span class="rounded px-2 py-0.5 text-xs font-bold" :style="{ background: (teamOf(p.team_id)?.color ?? '#999999') + '33' }">{{ teamOf(p.team_id)?.name }}</span>
               <h3 class="text-lg font-extrabold">{{ p.title }}</h3>
               <p v-if="p.description" class="line-clamp-2 text-sm text-muted-foreground">{{ p.description }}</p>
               <a
-                v-if="p.file_url" :href="p.file_url" target="_blank" rel="noopener"
+                v-if="materialOf(p)" :href="materialOf(p)!.url" target="_blank" rel="noopener"
                 class="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary"
-              >{{ docIcon(p.file_url) }} {{ p.file_name || '발표 자료' }} 보기</a>
+              >{{ docIcon(materialOf(p)!.url) }} {{ materialOf(p)!.name }} 보기</a>
             </div>
 
             <StarRating

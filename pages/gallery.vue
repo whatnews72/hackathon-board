@@ -12,6 +12,8 @@ const form = reactive({ title: '', description: '', link: '' })
 const file = ref<File | null>(null) // 대표 이미지
 const docFile = ref<File | null>(null) // 발표 자료 (PPT/PDF)
 const fileKey = ref(0) // 올리기가 끝나면 파일 선택칸을 비우기 위한 값
+const docInput = ref<HTMLInputElement | null>(null)
+const notice = ref('')
 const saving = ref(false)
 const errorMsg = ref('')
 const chosenTeam = ref('')
@@ -31,9 +33,51 @@ onMounted(() => {
 const teamOf = (id: string) => teams.value.find((t) => t.id === id)
 const sorted = computed(() => [...projects.value].sort((a, b) => b.votes - a.votes))
 
+// 발표 자료 칸에서 파일을 골랐을 때: 올릴 수 없는 파일이면 바로 이유를 알려 준다
+function pickDoc(e: Event) {
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0] ?? null
+  errorMsg.value = ''
+  notice.value = ''
+  const problem = f ? validateDoc(f) : ''
+  if (problem) { input.value = ''; docFile.value = null; errorMsg.value = problem; return }
+  docFile.value = f
+}
+
+// 대표 이미지 칸에서 파일을 골랐을 때: PDF/PPT 를 골랐다면 발표 자료로 옮기고, 그림이 아니면 안내한다
+function pickImage(e: Event) {
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0] ?? null
+  errorMsg.value = ''
+  notice.value = ''
+  if (f && docContentType(f.name)) {
+    const problem = validateDoc(f)
+    input.value = ''
+    file.value = null
+    if (problem) { errorMsg.value = problem; return }
+    docFile.value = f
+    // 발표 자료 칸에도 같은 파일이 보이도록 채운다 (지원하지 않는 브라우저면 아래 안내 문구로 충분)
+    try {
+      const dt = new DataTransfer()
+      dt.items.add(f)
+      if (docInput.value) docInput.value.files = dt.files
+    } catch { /* 무시 */ }
+    notice.value = `'${f.name}'은 그림이 아니라서 발표 자료로 올릴게요.`
+    return
+  }
+  if (f && !f.type.startsWith('image/')) {
+    input.value = ''
+    file.value = null
+    errorMsg.value = '대표 이미지에는 그림 파일(JPG, PNG 등)만 올릴 수 있어요. PPT·PDF는 아래 발표 자료 칸에 올려 주세요.'
+    return
+  }
+  file.value = f
+}
+
 async function submit() {
   if (saving.value) return
   errorMsg.value = ''
+  notice.value = ''
   if (!nickname.value) return (errorMsg.value = '작품을 올리려면 먼저 닉네임으로 입장해 주세요.')
   if (!form.title.trim()) return (errorMsg.value = '작품 제목을 입력해 주세요.')
   if (!chosenTeam.value) return (errorMsg.value = '팀을 선택해 주세요.')
@@ -111,15 +155,16 @@ async function vote(p: Project) {
       <div :key="fileKey" class="space-y-3">
         <label class="block space-y-1">
           <span class="text-sm font-semibold">🖼️ 대표 이미지 (선택)</span>
-          <input type="file" accept="image/*" class="block w-full text-sm" @change="file = ($event.target as HTMLInputElement).files?.[0] ?? null" />
+          <input type="file" accept="image/*" class="block w-full text-sm" @change="pickImage" />
         </label>
         <label class="block space-y-1">
           <span class="text-sm font-semibold">📎 발표 자료 - PPT 또는 PDF (선택, {{ DOC_MAX_MB }}MB까지)</span>
-          <input
-            type="file" :accept="DOC_ACCEPT" class="block w-full text-sm"
-            @change="docFile = ($event.target as HTMLInputElement).files?.[0] ?? null"
-          />
+          <input ref="docInput" type="file" :accept="DOC_ACCEPT" class="block w-full text-sm" @change="pickDoc" />
         </label>
+        <p v-if="docFile" class="rounded-md bg-green-50 p-2 text-sm font-semibold text-green-700">
+          {{ docIcon(docFile.name) }} 발표 자료로 올릴 파일: {{ docFile.name }}
+        </p>
+        <p v-if="notice" class="rounded-md bg-secondary p-2 text-sm font-semibold">{{ notice }}</p>
       </div>
       <p v-if="errorMsg" class="rounded-md bg-red-50 p-3 text-sm font-semibold text-destructive">{{ errorMsg }}</p>
       <div><UiButton :disabled="saving" @click="submit">{{ saving ? '올리는 중…' : '올리기' }}</UiButton></div>
@@ -127,8 +172,8 @@ async function vote(p: Project) {
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <UiCard v-for="p in sorted" :key="p.id" class="overflow-hidden p-0">
-        <img v-if="p.image_url" :src="p.image_url" :alt="p.title" class="h-44 w-full object-cover" />
-        <div v-else class="flex h-44 items-center justify-center bg-muted text-4xl">🎨</div>
+        <img v-if="thumbOf(p)" :src="thumbOf(p)" :alt="p.title" class="h-44 w-full object-cover" />
+        <div v-else class="flex h-44 items-center justify-center bg-muted text-4xl">{{ materialOf(p) ? docIcon(materialOf(p)!.url) : '🎨' }}</div>
         <div class="space-y-2 p-4">
           <span
             class="rounded px-2 py-0.5 text-xs font-bold"
@@ -137,9 +182,9 @@ async function vote(p: Project) {
           <h3 class="text-lg font-extrabold">{{ p.title }}</h3>
           <p class="line-clamp-3 text-sm text-muted-foreground">{{ p.description }}</p>
           <a
-            v-if="p.file_url" :href="p.file_url" target="_blank" rel="noopener"
+            v-if="materialOf(p)" :href="materialOf(p)!.url" target="_blank" rel="noopener"
             class="flex items-center gap-1 text-sm font-semibold text-primary"
-          >{{ docIcon(p.file_url) }} <span class="truncate">{{ p.file_name || '발표 자료' }}</span></a>
+          >{{ docIcon(materialOf(p)!.url) }} <span class="truncate">{{ materialOf(p)!.name }}</span></a>
           <div class="flex items-center justify-between pt-1">
             <a v-if="p.link" :href="p.link" target="_blank" rel="noopener" class="flex items-center gap-1 text-sm text-primary">
               <ExternalLink class="h-4 w-4" /> 링크
