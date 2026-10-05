@@ -3,7 +3,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{
     password?: string
     action:
-      | 'check' | 'deleteIdea' | 'deleteProject'
+      | 'check' | 'deleteIdea' | 'deleteProject' | 'deleteAllIdeas' | 'deleteAllProjects'
       | 'addTeam' | 'updateTeam' | 'createTeams' | 'deleteTeam'
       | 'updateTitle' | 'present'
       | 'setEvalStatus' | 'setRevealed' | 'updateCriteria' | 'setTeacherWeight' | 'resetEvaluations'
@@ -37,6 +37,22 @@ export default defineEventHandler(async (event) => {
     case 'deleteProject':
       must(await db.from('projects').delete().eq('id', body.id))
       break
+    case 'deleteAllIdeas':
+      must(await db.from('ideas').delete().not('id', 'is', null))
+      break
+    case 'deleteAllProjects': {
+      // 작품을 지우기 전에 업로드한 이미지 파일 경로를 모아 둔다
+      const { data: rows } = must(await db.from('projects').select('image_url'))
+      // 작품을 지우면 평가 점수도 함께 지워지고, 발표 중이던 작품은 발표 대상에서 빠진다
+      must(await db.from('projects').delete().not('id', 'is', null))
+      const paths = (rows ?? [])
+        .map((r) => String(r.image_url ?? '').split('/project-images/')[1])
+        .filter(Boolean)
+        .map((p) => decodeURIComponent(p.split('?')[0]))
+      // 이미지 파일 정리는 실패해도 작품 삭제 결과에는 영향을 주지 않는다
+      if (paths.length) await db.storage.from('project-images').remove(paths)
+      break
+    }
     case 'addTeam':
       must(await db.from('teams').insert({ name: cleanName(body.name, 20), color: body.color ?? '#6366f1' }))
       break

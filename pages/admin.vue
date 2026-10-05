@@ -90,6 +90,17 @@ function exportProjects() {
   message.value = `작품 ${rows.length}건을 CSV로 내려받았어요.`
 }
 
+// 아이디어/작품 전체 삭제: 지워질 개수를 보여 주고 확인받는다
+function removeAll(kind: 'ideas' | 'projects') {
+  const count = kind === 'ideas' ? ideas.value.length : projects.value.length
+  if (!count) return
+  const label = kind === 'ideas' ? '아이디어' : '작품'
+  const extra = kind === 'projects' ? '\n작품에 달린 평가 점수와 업로드한 이미지도 함께 삭제됩니다.' : ''
+  if (confirm(`${label} ${count}개를 모두 삭제할까요?${extra}\n되돌릴 수 없어요.`)) {
+    run(kind === 'ideas' ? 'deleteAllIdeas' : 'deleteAllProjects', {}, `${label} ${count}개를 모두 삭제했어요.`)
+  }
+}
+
 async function startPresent(id: string) {
   await run('present', { id })
   navigateTo('/present')
@@ -150,7 +161,10 @@ async function startPresent(id: string) {
       <UiCard class="space-y-2">
         <div class="flex items-center justify-between gap-2">
           <h2 class="font-extrabold">작품 ({{ projects.length }})</h2>
-          <UiButton size="sm" variant="outline" :disabled="!projects.length" @click="exportProjects">📥 CSV 내려받기</UiButton>
+          <div class="flex gap-2">
+            <UiButton size="sm" variant="outline" :disabled="!projects.length" @click="exportProjects">📥 CSV 내려받기</UiButton>
+            <UiButton size="sm" variant="destructive" :disabled="!projects.length" @click="removeAll('projects')">🗑️ 전체 삭제</UiButton>
+          </div>
         </div>
         <div v-for="p in projects" :key="p.id" class="flex items-center justify-between gap-2 border-b border-border py-2">
           <span>{{ p.title }} <small class="text-muted-foreground">- {{ p.nickname }}</small></span>
@@ -164,7 +178,10 @@ async function startPresent(id: string) {
       <UiCard class="space-y-2">
         <div class="flex items-center justify-between gap-2">
           <h2 class="font-extrabold">아이디어 ({{ ideas.length }})</h2>
-          <UiButton size="sm" variant="outline" :disabled="!ideas.length" @click="exportIdeas">📥 CSV 내려받기</UiButton>
+          <div class="flex gap-2">
+            <UiButton size="sm" variant="outline" :disabled="!ideas.length" @click="exportIdeas">📥 CSV 내려받기</UiButton>
+            <UiButton size="sm" variant="destructive" :disabled="!ideas.length" @click="removeAll('ideas')">🗑️ 전체 삭제</UiButton>
+          </div>
         </div>
         <div v-for="i in ideas" :key="i.id" class="flex items-center justify-between gap-2 border-b border-border py-2">
           <span class="break-words">{{ i.content }} <small class="text-muted-foreground">- {{ i.nickname }}</small></span>
