@@ -34,7 +34,7 @@ function leave() {
           </NuxtLink>
         </nav>
         <span v-if="nickname" class="text-sm text-muted-foreground">👤 {{ nickname }}</span>
-        <UiButton variant="ghost" size="sm" @click="leave">{{ nickname ? '나가기' : '처음으로' }}</UiButton>
+        <UiButton variant="ghost" size="sm" @click="leave">{{ nickname ? '나가기' : '입장하기' }}</UiButton>
       </div>
     </header>
     <main class="mx-auto max-w-6xl p-4">

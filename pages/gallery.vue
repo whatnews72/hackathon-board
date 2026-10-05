@@ -3,7 +3,7 @@ import { Heart, ExternalLink, Plus } from 'lucide-vue-next'
 import type { Team, Project } from '~/types'
 
 const supabase = useSupabase()
-const { nickname, teamId } = useNickname()
+const { nickname, teamId, ready } = useNickname()
 const { rows: teams } = useRealtimeTable<Team>('teams')
 const { rows: projects } = useRealtimeTable<Project>('projects')
 
@@ -32,6 +32,7 @@ const sorted = computed(() => [...projects.value].sort((a, b) => b.votes - a.vot
 async function submit() {
   if (saving.value) return
   errorMsg.value = ''
+  if (!nickname.value) return (errorMsg.value = '작품을 올리려면 먼저 닉네임으로 입장해 주세요.')
   if (!form.title.trim()) return (errorMsg.value = '작품 제목을 입력해 주세요.')
   if (!chosenTeam.value) return (errorMsg.value = '팀을 선택해 주세요.')
   saving.value = true
@@ -59,6 +60,7 @@ async function submit() {
 }
 
 async function vote(p: Project) {
+  if (!nickname.value) return (errorMsg.value = '투표하려면 먼저 닉네임으로 입장해 주세요.')
   if (voted.value.includes(p.id)) return
   voted.value.push(p.id)
   localStorage.setItem('votedProjects', JSON.stringify(voted.value))
@@ -72,6 +74,11 @@ async function vote(p: Project) {
       <h1 class="text-2xl font-extrabold">🖼️ 작품 갤러리</h1>
       <UiButton @click="showForm = !showForm"><Plus class="h-4 w-4" /> 작품 올리기</UiButton>
     </div>
+
+    <p v-if="ready && !nickname" class="mb-4 rounded-md bg-secondary p-3 text-sm font-semibold">
+      지금은 보기만 할 수 있어요. 작품을 올리거나 투표하려면 <NuxtLink to="/" class="text-primary underline">닉네임으로 입장하기</NuxtLink>
+    </p>
+    <p v-if="errorMsg && !showForm" class="mb-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-destructive">{{ errorMsg }}</p>
 
     <UiCard v-if="showForm" class="mb-6 space-y-3">
       <select v-model="chosenTeam" class="h-11 w-full rounded-md border border-border bg-white px-4">

@@ -4,6 +4,8 @@ import type { Team } from '~/types'
 const supabase = useSupabase()
 const { nickname, login } = useNickname()
 const name = ref(nickname.value)
+// 저장된 닉네임은 화면이 뜬 뒤에 읽히므로, 아직 비어 있으면 채워 준다
+watch(nickname, (v) => { if (!name.value) name.value = v })
 const teamId = ref('')
 const teams = ref<Team[]>([])
 const error = ref('')

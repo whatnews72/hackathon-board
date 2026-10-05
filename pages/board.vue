@@ -3,7 +3,7 @@ import { ThumbsUp, Plus } from 'lucide-vue-next'
 import type { Team, Idea } from '~/types'
 
 const supabase = useSupabase()
-const { nickname, teamId } = useNickname()
+const { nickname, teamId, ready } = useNickname()
 const { rows: teams } = useRealtimeTable<Team>('teams')
 const { rows: ideas } = useRealtimeTable<Idea>('ideas')
 const drafts = reactive<Record<string, string>>({})
@@ -20,6 +20,7 @@ const byTeam = (id: string) =>
 async function add(team: Team) {
   const content = (drafts[team.id] ?? '').trim()
   if (!content) return
+  if (!nickname.value) return (errorMsg.value = '글을 쓰려면 먼저 닉네임으로 입장해 주세요.')
   errorMsg.value = ''
   const { error } = await supabase.from('ideas').insert({ team_id: team.id, nickname: nickname.value, content })
   if (error) {
@@ -31,6 +32,7 @@ async function add(team: Team) {
 }
 
 async function like(idea: Idea) {
+  if (!nickname.value) return (errorMsg.value = '좋아요를 누르려면 먼저 닉네임으로 입장해 주세요.')
   if (liked.value.includes(idea.id)) return // 한 아이디어에 한 번만
   liked.value.push(idea.id)
   localStorage.setItem('likedIdeas', JSON.stringify(liked.value))
@@ -41,6 +43,9 @@ async function like(idea: Idea) {
 <template>
   <div>
     <h1 class="mb-4 text-2xl font-extrabold">💡 팀별 아이디어 보드</h1>
+    <p v-if="ready && !nickname" class="mb-4 rounded-md bg-secondary p-3 text-sm font-semibold">
+      지금은 보기만 할 수 있어요. 글을 쓰려면 <NuxtLink to="/" class="text-primary underline">닉네임으로 입장하기</NuxtLink>
+    </p>
     <p v-if="errorMsg" class="mb-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-destructive">{{ errorMsg }}</p>
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <section
